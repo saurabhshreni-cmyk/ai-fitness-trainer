@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+numpy
+pydantic
+mediapipe
+opencv-python-headless

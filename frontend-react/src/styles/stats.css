@@ -1,0 +1,89 @@
+/* ── Stats Display ──────────────────────────────────────────────────────── */
+
+.stats-row {
+  display: flex;
+  gap: var(--gap-md);
+  margin-bottom: 10px;
+}
+
+.stat-card {
+  flex: 1;
+  background: var(--color-surface-2);
+  padding: 10px;
+  border-radius: var(--radius-md);
+}
+
+.stat-label {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: var(--font-3xl);
+  font-weight: bold;
+}
+
+.stat-value--reps  { color: var(--color-primary); }
+.stat-value--angle { color: var(--color-info); }
+
+/* Badges row */
+.badges-row {
+  display: flex;
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-sm);
+}
+
+.badge {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.badge--strong { border: 1px solid var(--color-primary); color: var(--color-primary); }
+.badge--weak   { border: 1px solid var(--color-accent);  color: var(--color-accent); }
+
+.badge--fast { border: 1px solid rgba(129, 199, 132, 0.3); color: #81c784; }
+.badge--ok   { border: 1px solid rgba(255, 241, 118, 0.3); color: #fff176; }
+.badge--lag  { border: 1px solid rgba(255, 183, 77, 0.3);  color: #ffb74d; }
+
+/* Rep speed */
+.rep-speed {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--gap-sm);
+  font-size: var(--font-md);
+  display: flex;
+  justify-content: space-between;
+}
+
+.rep-speed--normal  { background: rgba(33, 150, 243, 0.1);  color: #90caf9; }
+.rep-speed--warning { background: rgba(244, 67, 54, 0.12); color: #ef9a9a; }
+
+/* Stage badge */
+.stage-badge {
+  padding: 7px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--gap-sm);
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: var(--font-md);
+}
+
+.stage-badge--up   { background: var(--color-primary-bg); color: #81c784; }
+.stage-badge--down { background: var(--color-info-bg);    color: #64b5f6; }
+
+/* Feedback toast */
+.feedback-toast {
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: black;
+  text-align: center;
+  font-weight: bold;
+  font-size: var(--font-md);
+}

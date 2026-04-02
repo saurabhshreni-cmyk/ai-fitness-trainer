@@ -1,0 +1,115 @@
+/* ── Workout Summary Modal ──────────────────────────────────────────────── */
+
+.summary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-xl);
+  width: 420px;
+  max-width: 95vw;
+  color: var(--color-text);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.summary-card h2 {
+  margin: 0 0 6px;
+  font-size: var(--font-2xl);
+}
+
+.summary-meta {
+  color: var(--color-text-dim);
+  font-size: var(--font-md);
+  margin-bottom: var(--gap-lg);
+}
+
+.summary-meta strong { color: var(--color-text-muted); }
+.summary-meta .total-reps { color: var(--color-primary); }
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--gap-md);
+  font-size: var(--font-lg);
+}
+
+.summary-table th {
+  text-align: left;
+  padding: 6px 0;
+  color: var(--color-text-dim);
+  border-bottom: 1px solid var(--color-surface-3);
+}
+
+.summary-table th:not(:first-child) { text-align: right; }
+
+.summary-table td { padding: 8px 0; }
+.summary-table td:not(:first-child) { text-align: right; }
+
+.summary-table td.exercise-name { text-transform: capitalize; }
+.summary-table td.reps-col      { color: var(--color-primary); font-weight: bold; }
+.summary-table td.best-col      { color: var(--color-gold); }
+.summary-table td.score-col     { color: var(--color-info); }
+.summary-table td.pb-col        { font-size: var(--font-xs); color: var(--color-primary); }
+
+.summary-table tr { border-bottom: 1px solid var(--color-surface-2); }
+
+.summary-sets {
+  font-size: var(--font-sm);
+  color: var(--color-text-faint);
+  margin-bottom: var(--gap-lg);
+  line-height: 1.9;
+}
+
+.summary-sets span { margin-right: 10px; }
+.summary-sets .set-reps { color: #bbb; }
+
+.summary-empty {
+  color: var(--color-text-faint);
+  font-size: var(--font-lg);
+  margin-bottom: var(--gap-lg);
+}
+
+.summary-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn--export {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent);
+  background: rgba(255, 152, 0, 0.08);
+  color: var(--color-accent);
+  font-weight: bold;
+  cursor: pointer;
+  font-size: var(--font-md);
+}
+
+.btn--export:disabled {
+  color: var(--color-text-faint);
+  cursor: not-allowed;
+}
+
+.btn--close {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-border);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: var(--font-md);
+}

@@ -1,0 +1,75 @@
+/* ── Control Panel ──────────────────────────────────────────────────────── */
+
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  margin-top: 10px;
+}
+
+.control-row {
+  display: flex;
+  gap: var(--gap-sm);
+}
+
+.btn {
+  flex: 1;
+  padding: 11px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: var(--font-lg);
+  letter-spacing: 0.5px;
+  transition: opacity 0.15s;
+}
+
+.btn:hover { opacity: 0.9; }
+.btn:active { opacity: 0.75; }
+
+.btn--start { background: var(--color-primary); color: white; }
+.btn--pause { background: var(--color-danger);  color: white; }
+.btn--reset { background: #555; color: white; }
+
+.btn--end {
+  width: 100%;
+  padding: 9px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-weight: bold;
+  cursor: pointer;
+  font-size: var(--font-md);
+  letter-spacing: 0.4px;
+}
+
+.btn--end:hover { background: rgba(255, 152, 0, 0.2); }
+
+/* Exercise selector */
+.exercise-select {
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
+  color: white;
+  border: 1px solid var(--color-text-faint);
+  font-size: var(--font-xl);
+  width: 100%;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.exercise-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Keyboard hints */
+.kb-hints {
+  display: flex;
+  gap: var(--gap-md);
+  margin-top: var(--gap-sm);
+  font-size: var(--font-xs);
+  color: var(--color-text-faint);
+  justify-content: center;
+}

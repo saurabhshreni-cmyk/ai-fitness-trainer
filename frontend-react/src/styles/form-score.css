@@ -1,0 +1,63 @@
+/* ── Form Score Gauge ───────────────────────────────────────────────────── */
+
+.form-score {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  margin-bottom: var(--gap-sm);
+}
+
+.form-gauge {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.form-gauge svg {
+  transform: rotate(-90deg);
+  width: 52px;
+  height: 52px;
+}
+
+.form-gauge__bg {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 5;
+}
+
+.form-gauge__fill {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease, stroke 0.3s ease;
+}
+
+.form-gauge__text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-lg);
+  font-weight: bold;
+}
+
+.form-score__details {
+  flex: 1;
+  font-size: var(--font-sm);
+}
+
+.form-score__label {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.form-score__avg {
+  color: var(--color-text-dim);
+}

@@ -1,0 +1,94 @@
+/* ── Onboarding Overlay ─────────────────────────────────────────────────── */
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.onboarding-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 36px;
+  width: 440px;
+  max-width: 95vw;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.onboarding-card h2 {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+
+.onboarding-card p {
+  color: var(--color-text-dim);
+  font-size: var(--font-xl);
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+.onboarding-steps {
+  display: flex;
+  gap: var(--gap-sm);
+  margin-bottom: 24px;
+  justify-content: center;
+}
+
+.onboarding-step {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background 0.3s;
+}
+
+.onboarding-step--active {
+  background: var(--color-primary);
+  width: 28px;
+  border-radius: 5px;
+}
+
+.onboarding-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.onboarding-tip {
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 24px;
+  font-size: var(--font-lg);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.btn--onboarding {
+  padding: 12px 32px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-primary);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 16px;
+  transition: opacity 0.15s;
+}
+
+.btn--onboarding:hover { opacity: 0.9; }
+
+.btn--skip {
+  background: none;
+  border: none;
+  color: var(--color-text-faint);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  margin-top: 12px;
+  text-decoration: underline;
+}

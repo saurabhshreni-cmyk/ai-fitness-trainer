@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import Webcam from "react-webcam";
 
 import "./styles/variables.css";
@@ -6,17 +6,16 @@ import "./index.css";
 import "./App.css";
 
 import useCountdown from "./hooks/useCountdown";
-import useRepTracking from "./hooks/useRepTracking";
 import useWorkout from "./hooks/useWorkout";
 import useKeyboard from "./hooks/useKeyboard";
 import usePoseDetection from "./hooks/usePoseDetection";
+import useSpeech from "./hooks/useSpeech";
 
-import { CAMERA_WIDTH, CAMERA_HEIGHT } from "./constants";
+import { CAMERA_WIDTH, CAMERA_HEIGHT, UI_FPS, REST_AFTER } from "./constants";
 import ExerciseSelector from "./components/ExerciseSelector";
 import ControlPanel from "./components/ControlPanel";
 import StatsDisplay from "./components/StatsDisplay";
 import ScoreBoard from "./components/ScoreBoard";
-import FormScore from "./components/FormScore";
 import WorkoutSummary from "./components/WorkoutSummary";
 import Onboarding from "./components/Onboarding";
 
@@ -27,51 +26,138 @@ function genUUID() {
   });
 }
 
+/**
+ * PERFORMANCE ARCHITECTURE:
+ *
+ * Hot path (30fps): Camera → MediaPipe → onResults → useRef (zero renders)
+ * UI path (10fps):  rAF loop reads refs → single batched setState → render
+ *
+ * This means pose detection NEVER causes React re-renders.
+ * UI updates at a controlled 10fps — smooth enough for human eyes,
+ * 3x less CPU than updating every frame.
+ */
 export default function App() {
-  const webcamRef = useRef(null);
-  const canvasRef = useRef(null);
-  const sessionId = useRef(genUUID());
+  const webcamRef  = useRef(null);
+  const canvasRef  = useRef(null);
+  const exerciseRef = useRef("bicep_curl");
 
   const [cameraReady, setCameraReady] = useState(false);
   const [warmingUp,   setWarmingUp]   = useState(false);
-  const [angle,       setAngle]       = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem("ai_trainer_onboarded")
   );
 
-  // Canvas stays at camera resolution; CSS stretches it to fill the wrapper.
+  // ── Single batched UI state (updated at UI_FPS, not 30fps) ────────
+  const [ui, setUi] = useState({
+    angle: 0, reps: 0, stage: null, poseConf: null,
+    feedback: "", restSecs: null, repSpeed: null,
+  });
 
-  // ── Hooks ─────────────────────────────────────────────────────────────
+  // Refs for hot-path tracking (no renders)
+  const isRunningRef     = useRef(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const prevRepsRef      = useRef(0);
+  const lastRepTimeRef   = useRef(null);
+  const repTimestampsRef = useRef([]);
+  const bestRepsRef      = useRef(
+    JSON.parse(localStorage.getItem("ai_trainer_best_reps")) || {}
+  );
+  const [bestReps, setBestReps] = useState(bestRepsRef.current);
+
+  // Keep ref in sync
+  useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+
+  const { speak } = useSpeech();
+
+  // ── Hooks ─────────────────────────────────────────────────────────
 
   const {
     exercise, sets, showSummary, workoutStartRef,
     startWorkout, recordSet, endWorkout, closeSummary, changeExercise,
   } = useWorkout("bicep_curl");
 
-  const {
-    reps, setReps, stage, setStage, feedback, setFeedback,
-    repSpeed, restSecs, bestReps, isRunning, setIsRunning, isRunningRef,
-    formScore, setFormScore, formDetails, setFormDetails, resetReps,
-  } = useRepTracking(exercise);
+  // Keep exerciseRef in sync (so pose detection callback never recreates)
+  useEffect(() => { exerciseRef.current = exercise; }, [exercise]);
 
   const { countdown, runCountdown, isCountdownActive } = useCountdown();
 
-  // ── Pose detection result handler (client-side, no HTTP) ──────────
-
-  const handlePoseResult = useCallback((data) => {
-    if (data.angle !== undefined)     setAngle(data.angle);
-    if (data.reps !== undefined)      setReps(data.reps);
-    if (data.stage)                   setStage(data.stage);
-    if (data.feedback !== undefined)  setFeedback(data.feedback);
-    if (data.formScore !== undefined) setFormScore(data.formScore);
-    if (data.formDetails)             setFormDetails(data.formDetails);
-  }, [setReps, setStage, setFeedback, setFormScore, setFormDetails]);
-
-  const { poseConf, resetRepState } = usePoseDetection({
-    webcamRef, canvasRef, cameraReady, exercise,
-    isRunningRef, isCountdownActive,
-    onResult: handlePoseResult,
+  const { readSnapshot, resetRepState } = usePoseDetection({
+    webcamRef, canvasRef, cameraReady,
+    exerciseRef, isRunningRef, isCountdownActive,
   });
+
+  // ── Controlled UI update loop (rAF capped at UI_FPS) ──────────────
+  // This is THE ONLY place React state gets updated from pose data.
+  // Runs at 10fps instead of 30fps = 3x fewer renders.
+  useEffect(() => {
+    const interval = 1000 / UI_FPS;
+    let lastTick = 0;
+    let rafId;
+
+    const tick = (now) => {
+      rafId = requestAnimationFrame(tick);
+      if (now - lastTick < interval) return;
+      lastTick = now;
+
+      if (!isRunningRef.current) return;
+
+      const snap = readSnapshot();
+      let feedback = "";
+      let repSpeed = null;
+
+      // Rep detection
+      if (snap.reps > prevRepsRef.current) {
+        speak("Good rep!");
+        feedback = "Good Rep!";
+
+        const t = Date.now();
+        repTimestampsRef.current.push(t);
+        if (repTimestampsRef.current.length > 10) repTimestampsRef.current.shift();
+        if (repTimestampsRef.current.length >= 2) {
+          const arr = repTimestampsRef.current;
+          repSpeed = (arr[arr.length - 1] - arr[arr.length - 2]) / 1000;
+        }
+
+        lastRepTimeRef.current = t;
+
+        // Update best reps
+        if (snap.reps > (bestRepsRef.current[exercise] || 0)) {
+          bestRepsRef.current = { ...bestRepsRef.current, [exercise]: snap.reps };
+          localStorage.setItem("ai_trainer_best_reps", JSON.stringify(bestRepsRef.current));
+          setBestReps(bestRepsRef.current);
+        }
+      }
+      prevRepsRef.current = snap.reps;
+
+      // Rest timer
+      let restSecs = null;
+      if (lastRepTimeRef.current) {
+        const elapsed = Date.now() - lastRepTimeRef.current;
+        if (elapsed >= REST_AFTER) {
+          restSecs = Math.floor((elapsed - REST_AFTER) / 1000);
+        }
+      }
+
+      // Weak pose feedback
+      if (snap.poseConf === "WEAK") {
+        feedback = "Adjust position — ensure joints are visible";
+      }
+
+      // SINGLE batched state update (not 6 separate ones)
+      setUi({
+        angle:    snap.angle,
+        reps:     snap.reps,
+        stage:    snap.stage,
+        poseConf: snap.poseConf,
+        feedback,
+        restSecs,
+        repSpeed,
+      });
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [exercise, readSnapshot, speak]);
 
   // ── Actions ───────────────────────────────────────────────────────
 
@@ -79,31 +165,41 @@ export default function App() {
     if (!isRunning) {
       await runCountdown();
       await startWorkout();
+      lastRepTimeRef.current = Date.now();
       setIsRunning(true);
     } else {
       setIsRunning(false);
     }
-  }, [isRunning, runCountdown, startWorkout, setIsRunning]);
+  }, [isRunning, runCountdown, startWorkout]);
 
   const handleReset = useCallback(async () => {
-    if (reps > 0) await recordSet(exercise, reps);
-    resetReps();
+    if (prevRepsRef.current > 0) await recordSet(exercise, prevRepsRef.current);
     resetRepState();
-  }, [exercise, reps, recordSet, resetReps, resetRepState]);
+    prevRepsRef.current = 0;
+    repTimestampsRef.current = [];
+    lastRepTimeRef.current = null;
+    setUi(prev => ({ ...prev, reps: 0, stage: null, angle: 0, feedback: "Counter Reset" }));
+  }, [exercise, recordSet, resetRepState]);
 
   const handleEndWorkout = useCallback(async () => {
-    if (reps > 0) await recordSet(exercise, reps);
-    resetReps();
+    if (prevRepsRef.current > 0) await recordSet(exercise, prevRepsRef.current);
     resetRepState();
+    prevRepsRef.current = 0;
+    repTimestampsRef.current = [];
+    lastRepTimeRef.current = null;
     setIsRunning(false);
+    setUi(prev => ({ ...prev, reps: 0, stage: null, angle: 0 }));
     await endWorkout();
-  }, [exercise, reps, recordSet, resetReps, resetRepState, setIsRunning, endWorkout]);
+  }, [exercise, recordSet, resetRepState, endWorkout]);
 
   const handleExerciseChange = useCallback((newEx) => {
     changeExercise(newEx);
-    resetReps();
     resetRepState();
-  }, [changeExercise, resetReps, resetRepState]);
+    prevRepsRef.current = 0;
+    repTimestampsRef.current = [];
+    lastRepTimeRef.current = null;
+    setUi(prev => ({ ...prev, reps: 0, stage: null, angle: 0, feedback: "" }));
+  }, [changeExercise, resetRepState]);
 
   useKeyboard({
     onToggle: handleToggle,
@@ -119,9 +215,7 @@ export default function App() {
     <div className="app-container">
       {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
 
-      {/* VIDEO — fills all available space */}
       <div className="canvas-wrapper">
-        {/* Webcam video shown directly — never goes black */}
         <Webcam
           ref={webcamRef}
           className="webcam-video"
@@ -133,15 +227,14 @@ export default function App() {
             setTimeout(() => { setWarmingUp(false); setCameraReady(true); }, 1500);
           }}
         />
-        {/* Transparent canvas on top for skeleton overlay only */}
-        <canvas ref={canvasRef} className="skeleton-canvas" width={CAMERA_WIDTH} height={CAMERA_HEIGHT} />
+        <canvas ref={canvasRef} className="skeleton-canvas"
+          width={CAMERA_WIDTH} height={CAMERA_HEIGHT} />
 
         {sets.length > 0 && (
           <div className="sets-strip">
             {sets.map((s, i) => (
               <span key={i} className="set-chip">
                 Set {i + 1}: <strong>{s.reps}</strong>
-                {s.avgFormScore && <span className="set-score"> ({Math.round(s.avgFormScore)})</span>}
               </span>
             ))}
           </div>
@@ -149,10 +242,11 @@ export default function App() {
 
         {warmingUp && <div className="overlay-center warm-overlay">Camera warming up...</div>}
         {countdown !== null && <div className="overlay-center countdown-overlay">{countdown}</div>}
-        {restSecs !== null && <div className="overlay-center rest-overlay">{fmtRest(restSecs)}</div>}
+        {ui.restSecs !== null && (
+          <div className="overlay-center rest-overlay">{fmtRest(ui.restSecs)}</div>
+        )}
       </div>
 
-      {/* HUD SIDEBAR — slim right panel */}
       <div className="hud">
         <h1>AI Fitness Trainer</h1>
 
@@ -163,16 +257,13 @@ export default function App() {
         />
 
         <StatsDisplay
-          angle={angle}
-          reps={reps}
-          stage={stage}
-          feedback={feedback}
-          repSpeed={repSpeed}
-          poseConf={poseConf}
-          avgLatency={null}
+          angle={ui.angle}
+          reps={ui.reps}
+          stage={ui.stage}
+          feedback={ui.feedback}
+          repSpeed={ui.repSpeed}
+          poseConf={ui.poseConf}
         />
-
-        <FormScore formScore={formScore} formDetails={formDetails} />
 
         <ControlPanel
           isRunning={isRunning}
@@ -189,7 +280,7 @@ export default function App() {
 
         <ScoreBoard
           currentExercise={exercise}
-          currentReps={reps}
+          currentReps={ui.reps}
           bestReps={bestReps}
         />
       </div>

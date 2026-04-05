@@ -1,7 +1,7 @@
 import React from "react";
 import "../styles/controls.css";
 
-const ControlPanel = ({ isRunning, onToggle, onReset, onEndWorkout }) => (
+const ControlPanel = React.memo(({ isRunning, onToggle, onReset, onEndWorkout }) => (
   <div className="control-panel">
     <div className="control-row">
       <button
@@ -18,6 +18,7 @@ const ControlPanel = ({ isRunning, onToggle, onReset, onEndWorkout }) => (
       END WORKOUT
     </button>
   </div>
-);
+));
 
+ControlPanel.displayName = "ControlPanel";
 export default ControlPanel;

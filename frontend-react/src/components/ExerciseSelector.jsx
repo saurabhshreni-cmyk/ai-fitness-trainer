@@ -2,7 +2,7 @@ import React from "react";
 import { EXERCISE_CONFIG, EXERCISES } from "../constants";
 import "../styles/controls.css";
 
-const ExerciseSelector = ({ currentExercise, onSelect, disabled }) => (
+const ExerciseSelector = React.memo(({ currentExercise, onSelect, disabled }) => (
   <div className="exercise-selector">
     <label htmlFor="exercise-select" className="sr-only">
       Select Exercise
@@ -21,6 +21,7 @@ const ExerciseSelector = ({ currentExercise, onSelect, disabled }) => (
       ))}
     </select>
   </div>
-);
+));
 
+ExerciseSelector.displayName = "ExerciseSelector";
 export default ExerciseSelector;

@@ -1,19 +1,21 @@
 /**
- * Client-side angle calculation — eliminates HTTP round-trip lag.
- * Runs at camera framerate (~30fps) with zero network delay.
+ * Client-side angle calculation + rep counting.
+ * Runs at camera framerate with zero allocations in the hot path.
  */
 
 /**
- * Calculate angle at point B (in degrees) from three landmark positions.
- * Coordinates are normalized [0,1].
+ * Calculate angle at point B (degrees) from three landmarks.
+ * Pure math — no allocations, ~0.05ms per call.
  */
 export function calculateAngle(a, b, c) {
-  const ba = [a.x - b.x, a.y - b.y];
-  const bc = [c.x - b.x, c.y - b.y];
+  const bax = a.x - b.x;
+  const bay = a.y - b.y;
+  const bcx = c.x - b.x;
+  const bcy = c.y - b.y;
 
-  const dot = ba[0] * bc[0] + ba[1] * bc[1];
-  const magBA = Math.sqrt(ba[0] ** 2 + ba[1] ** 2);
-  const magBC = Math.sqrt(bc[0] ** 2 + bc[1] ** 2);
+  const dot = bax * bcx + bay * bcy;
+  const magBA = Math.sqrt(bax * bax + bay * bay);
+  const magBC = Math.sqrt(bcx * bcx + bcy * bcy);
 
   if (magBA * magBC === 0) return 0;
 
@@ -22,106 +24,79 @@ export function calculateAngle(a, b, c) {
 }
 
 /**
- * Exercise configs with RELAXED thresholds for real webcam use.
- * down/up thresholds are ~20% more forgiving than ideal to account
- * for camera angle, body proportions, and MediaPipe noise.
+ * Exercise thresholds — relaxed for real webcam use.
+ *
+ * These are ~20% more forgiving than textbook angles to account for
+ * camera perspective, body proportions, and MediaPipe noise.
  */
 export const EXERCISE_THRESHOLDS = {
-  bicep_curl: {
-    down_angle: 140,   // was 160 — arm mostly extended
-    up_angle: 55,      // was 35 — arm well curled (not fully)
-    mode: "curl",
-  },
-  pushups: {
-    up_angle: 145,     // was 155
-    down_angle: 100,   // was 90
-    mode: "pushup",
-  },
-  squats: {
-    up_angle: 155,     // was 165
-    down_angle: 105,   // was 95
-    mode: "squat",
-  },
-  shoulder_press: {
-    down_angle: 85,    // was 80
-    up_angle: 150,     // was 165
-    mode: "press",
-  },
-  lateral_raise: {
-    down_angle: 25,    // was 20
-    up_angle: 65,      // was 75
-    mode: "raise",
-  },
-  lunges: {
-    up_angle: 155,     // was 165
-    down_angle: 110,   // was 100
-    mode: "squat",
-  },
-  front_raise: {
-    down_angle: 30,    // was 25
-    up_angle: 70,      // was 80
-    mode: "raise",
-  },
+  bicep_curl:     { down_angle: 140, up_angle: 55,  mode: "curl" },
+  pushups:        { up_angle: 145,   down_angle: 100, mode: "pushup" },
+  squats:         { up_angle: 155,   down_angle: 105, mode: "squat" },
+  shoulder_press: { down_angle: 85,  up_angle: 150, mode: "press" },
+  lateral_raise:  { down_angle: 25,  up_angle: 65,  mode: "raise" },
+  lunges:         { up_angle: 155,   down_angle: 110, mode: "squat" },
+  front_raise:    { down_angle: 30,  up_angle: 70,  mode: "raise" },
 };
 
+const MIN_REP_MS = 500;
+
 /**
- * Rep counter state machine — runs entirely client-side.
- * Returns { reps, stage, counted } where counted=true if a new rep was just detected.
+ * Rep counter state machine.
+ * Mutates state in-place for zero allocation (hot path).
+ * Returns the same object with `counted` flag set.
  */
 export function countRep(angle, exercise, state) {
   const cfg = EXERCISE_THRESHOLDS[exercise];
-  if (!cfg) return { ...state, counted: false };
+  if (!cfg) { state.counted = false; return state; }
 
   const now = Date.now();
-  const MIN_REP_MS = 500; // minimum time between reps
-  let counted = false;
-  let { reps = 0, stage = null, lastRepTime = 0 } = state;
-
-  const canCount = () => (now - lastRepTime) > MIN_REP_MS;
+  const canCount = (now - state.lastRepTime) > MIN_REP_MS;
+  state.counted = false;
 
   if (exercise === "pushups") {
-    if (angle > cfg.up_angle) stage = "up";
-    if (angle < cfg.down_angle && stage === "up") stage = "down";
-    if (angle > cfg.up_angle && stage === "down" && canCount()) {
-      reps++;
-      stage = "up";
-      lastRepTime = now;
-      counted = true;
+    if (angle > cfg.up_angle) state.stage = "up";
+    if (angle < cfg.down_angle && state.stage === "up") state.stage = "down";
+    if (angle > cfg.up_angle && state.stage === "down" && canCount) {
+      state.reps++;
+      state.stage = "up";
+      state.lastRepTime = now;
+      state.counted = true;
     }
   } else if (cfg.mode === "squat") {
-    if (angle > cfg.up_angle) stage = "up";
-    if (angle < cfg.down_angle && stage === "up" && canCount()) {
-      reps++;
-      stage = "down";
-      lastRepTime = now;
-      counted = true;
+    if (angle > cfg.up_angle) state.stage = "up";
+    if (angle < cfg.down_angle && state.stage === "up" && canCount) {
+      state.reps++;
+      state.stage = "down";
+      state.lastRepTime = now;
+      state.counted = true;
     }
   } else if (cfg.mode === "curl") {
-    if (angle > cfg.down_angle) stage = "down";
-    if (angle < cfg.up_angle && stage === "down" && canCount()) {
-      reps++;
-      stage = "up";
-      lastRepTime = now;
-      counted = true;
+    if (angle > cfg.down_angle) state.stage = "down";
+    if (angle < cfg.up_angle && state.stage === "down" && canCount) {
+      state.reps++;
+      state.stage = "up";
+      state.lastRepTime = now;
+      state.counted = true;
     }
   } else if (cfg.mode === "press") {
-    if (angle < cfg.down_angle) stage = "down";
-    if (angle > cfg.up_angle && stage === "down" && canCount()) {
-      reps++;
-      stage = "up";
-      lastRepTime = now;
-      counted = true;
+    if (angle < cfg.down_angle) state.stage = "down";
+    if (angle > cfg.up_angle && state.stage === "down" && canCount) {
+      state.reps++;
+      state.stage = "up";
+      state.lastRepTime = now;
+      state.counted = true;
     }
   } else if (cfg.mode === "raise") {
-    if (angle < cfg.down_angle) stage = "down";
-    if (angle > cfg.up_angle && stage === "down" && canCount()) {
-      reps++;
-      stage = "up";
-      lastRepTime = now;
-      counted = true;
+    if (angle < cfg.down_angle) state.stage = "down";
+    if (angle > cfg.up_angle && state.stage === "down" && canCount) {
+      state.reps++;
+      state.stage = "up";
+      state.lastRepTime = now;
+      state.counted = true;
     }
-    if (angle < cfg.down_angle && stage === "up") stage = "down";
+    if (angle < cfg.down_angle && state.stage === "up") state.stage = "down";
   }
 
-  return { reps, stage, lastRepTime, counted };
+  return state;
 }

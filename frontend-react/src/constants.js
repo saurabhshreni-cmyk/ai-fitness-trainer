@@ -2,10 +2,18 @@
 
 export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// Throttle / timing
-export const SEND_MS    = 66;     // ~15 API calls / sec — smooth real-time
+// Timing
 export const SPEECH_GAP = 2500;   // ms between utterances
 export const REST_AFTER = 12000;  // ms of no rep before rest timer starts
+export const UI_FPS     = 10;     // UI updates per second (not camera fps)
+
+// Camera — low resolution for performance on laptops
+export const CAMERA_WIDTH  = 640;
+export const CAMERA_HEIGHT = 360;
+
+// Pose detection
+export const MODEL_COMPLEXITY = 0; // 0=lite(fastest), 1=full, 2=heavy
+export const PROCESS_EVERY_N  = 2; // skip every other frame
 
 // Exercise config — keys MUST match backend EXERCISE_MAP
 export const EXERCISE_CONFIG = {
@@ -19,7 +27,3 @@ export const EXERCISE_CONFIG = {
 };
 
 export const EXERCISES = Object.keys(EXERCISE_CONFIG);
-
-// Camera resolution
-export const CAMERA_WIDTH  = 640;
-export const CAMERA_HEIGHT = 480;

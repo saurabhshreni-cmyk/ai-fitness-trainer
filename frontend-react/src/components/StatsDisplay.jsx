@@ -1,6 +1,6 @@
 import React from 'react';
 
-const StatsDisplay = ({ angle, reps, stage, feedback, repSpeed, poseConf, avgLatency }) => {
+const StatsDisplay = ({ angle, reps, stage, feedback, repSpeed, poseConf, avgLatency, formScore }) => {
     const speedWarning = repSpeed !== null && repSpeed < 0.8;
 
     // Latency badge
@@ -67,6 +67,22 @@ const StatsDisplay = ({ angle, reps, stage, feedback, repSpeed, poseConf, avgLat
                 }}>
                     <span>Rep speed</span>
                     <strong>{repSpeed.toFixed(1)}s</strong>
+                </div>
+            )}
+
+            {typeof formScore === 'number' && (
+                <div style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    marginBottom: '8px',
+                    background: formScore >= 80 ? 'rgba(76,175,80,0.12)' : 'rgba(255,152,0,0.12)',
+                    color: formScore >= 80 ? '#81c784' : '#ffb74d',
+                    fontSize: '13px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                }}>
+                    <span>Form score</span>
+                    <strong>{Math.round(formScore)}/100</strong>
                 </div>
             )}
 

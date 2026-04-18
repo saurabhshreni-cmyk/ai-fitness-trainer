@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
+import { downloadTimeSeriesCsv } from "../utils/sessionExport";
 
 /**
  * WorkoutSummary modal
- * Props: sets, bestReps, startTime, onClose
+ * Props: sets, bestReps, startTime, onClose, sessionTimeSeriesLog
  */
-const WorkoutSummary = ({ sets, bestReps, startTime, onClose }) => {
+const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesLog = [] }) => {
     const now = Date.now();
     const durationMs = startTime ? now - startTime : 0;
     const dMin = Math.floor(durationMs / 60000);
@@ -39,6 +40,10 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose }) => {
         });
         a.click();
         URL.revokeObjectURL(a.href);
+    };
+
+    const handleDownloadSessionData = () => {
+        downloadTimeSeriesCsv(sessionTimeSeriesLog, "session_biomechanics_data");
     };
 
     return (
@@ -105,7 +110,7 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose }) => {
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                         onClick={handleExport}
                         disabled={sets.length === 0}
@@ -121,9 +126,23 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose }) => {
                         Export CSV
                     </button>
                     <button
+                        onClick={handleDownloadSessionData}
+                        disabled={sessionTimeSeriesLog.length === 0}
+                        style={{
+                            flex: 1, minWidth: '140px', padding: '10px', borderRadius: '8px',
+                            border: '1px solid #00e5ff',
+                            background: 'rgba(0,229,255,0.08)',
+                            color: sessionTimeSeriesLog.length === 0 ? '#4a5b60' : '#80deea',
+                            fontWeight: 'bold', cursor: sessionTimeSeriesLog.length === 0 ? 'not-allowed' : 'pointer',
+                            fontSize: '13px',
+                        }}
+                    >
+                        Download Session Data (CSV)
+                    </button>
+                    <button
                         onClick={onClose}
                         style={{
-                            flex: 1, padding: '10px', borderRadius: '8px',
+                            flex: 1, minWidth: '90px', padding: '10px', borderRadius: '8px',
                             border: 'none', background: '#333',
                             color: '#fff', fontWeight: 'bold',
                             cursor: 'pointer', fontSize: '13px',

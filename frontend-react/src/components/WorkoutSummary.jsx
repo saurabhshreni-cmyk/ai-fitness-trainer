@@ -1,6 +1,5 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { downloadTimeSeriesCsv } from "../utils/sessionExport";
-import { buildSessionRecord, saveSession } from "../utils/sessionStorage";
 
 const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesLog = [] }) => {
     const now = Date.now();
@@ -18,18 +17,8 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
 
     const totalReps = sets.reduce((acc, s) => acc + s.reps, 0);
 
-    useEffect(() => {
-        if (sets.length > 0) {
-            const primaryExercise = sets[sets.length - 1]?.exercise || 'unknown';
-            const record = buildSessionRecord({
-                exercise: primaryExercise,
-                sets,
-                startTime,
-                avgFormScore: 80,
-            });
-            saveSession(record);
-        }
-    }, []);
+    // NOTE: Session persistence is owned by Trainer.handleEndWorkout (which has the
+    // real form score and handles backend sync). WorkoutSummary is display/export only.
 
     const handleExportCsv = () => {
         const dateStr = new Date().toISOString().split('T')[0];

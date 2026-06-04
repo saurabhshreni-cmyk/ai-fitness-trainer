@@ -1,10 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { downloadTimeSeriesCsv } from "../utils/sessionExport";
+import { buildSessionRecord, saveSession } from "../utils/sessionStorage";
 
-/**
- * WorkoutSummary modal
- * Props: sets, bestReps, startTime, onClose, sessionTimeSeriesLog
- */
 const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesLog = [] }) => {
     const now = Date.now();
     const durationMs = startTime ? now - startTime : 0;
@@ -21,7 +18,20 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
 
     const totalReps = sets.reduce((acc, s) => acc + s.reps, 0);
 
-    const handleExport = () => {
+    useEffect(() => {
+        if (sets.length > 0) {
+            const primaryExercise = sets[sets.length - 1]?.exercise || 'unknown';
+            const record = buildSessionRecord({
+                exercise: primaryExercise,
+                sets,
+                startTime,
+                avgFormScore: 80,
+            });
+            saveSession(record);
+        }
+    }, []);
+
+    const handleExportCsv = () => {
         const dateStr = new Date().toISOString().split('T')[0];
         const rows = [['date', 'exercise', 'set', 'reps', 'duration_min']];
         sets.forEach((s, i) => {
@@ -42,6 +52,27 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
         URL.revokeObjectURL(a.href);
     };
 
+    const handleExportJson = () => {
+        const dateStr = new Date().toISOString().split('T')[0];
+        const data = {
+            exportedAt: new Date().toISOString(),
+            duration: { minutes: dMin, seconds: dSec },
+            totalReps,
+            sets,
+            exerciseSummary: byExercise,
+            bestReps,
+            timeSeriesDataPoints: sessionTimeSeriesLog.length,
+            timeSeriesLog: sessionTimeSeriesLog,
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(blob),
+            download: `workout_${dateStr}.json`,
+        });
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
     const handleDownloadSessionData = () => {
         downloadTimeSeriesCsv(sessionTimeSeriesLog, "session_biomechanics_data");
     };
@@ -53,7 +84,7 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
         }}>
             <div style={{
                 background: '#1a1a1a', border: '1px solid #333', borderRadius: '14px',
-                padding: '28px', width: '380px', maxWidth: '95vw', color: '#eee',
+                padding: '28px', width: '400px', maxWidth: '95vw', color: '#eee',
                 boxShadow: '0 8px 40px rgba(0,0,0,0.7)', maxHeight: '90vh', overflowY: 'auto',
             }}>
                 <h2 style={{ margin: '0 0 6px', fontSize: '20px' }}>🏆 Workout Summary</h2>
@@ -79,16 +110,14 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
                         </thead>
                         <tbody>
                             {Object.entries(byExercise).map(([ex, total]) => {
-                                const best  = bestReps[ex] || 0;
+                                const best = bestReps[ex] || 0;
                                 const isNew = total > best;
                                 return (
                                     <tr key={ex} style={{ borderBottom: '1px solid #222' }}>
                                         <td style={{ padding: '8px 0', textTransform: 'capitalize' }}>
                                             {ex.replace(/_/g, ' ')}
                                         </td>
-                                        <td style={{ textAlign: 'right', color: '#4CAF50', fontWeight: 'bold' }}>
-                                            {total}
-                                        </td>
+                                        <td style={{ textAlign: 'right', color: '#4CAF50', fontWeight: 'bold' }}>{total}</td>
                                         <td style={{ textAlign: 'right', color: '#FFD700' }}>{best}</td>
                                         <td style={{ textAlign: 'right', fontSize: '11px', color: '#4CAF50' }}>
                                             {isNew ? '🔥 PB!' : ''}
@@ -110,9 +139,9 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     <button
-                        onClick={handleExport}
+                        onClick={handleExportCsv}
                         disabled={sets.length === 0}
                         style={{
                             flex: 1, padding: '10px', borderRadius: '8px',
@@ -120,10 +149,24 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
                             background: 'rgba(255,152,0,0.08)',
                             color: sets.length === 0 ? '#555' : '#FF9800',
                             fontWeight: 'bold', cursor: sets.length === 0 ? 'not-allowed' : 'pointer',
-                            fontSize: '13px',
+                            fontSize: '12px',
                         }}
                     >
-                        Export CSV
+                        📊 Export CSV
+                    </button>
+                    <button
+                        onClick={handleExportJson}
+                        disabled={sets.length === 0}
+                        style={{
+                            flex: 1, padding: '10px', borderRadius: '8px',
+                            border: '1px solid #7c4dff',
+                            background: 'rgba(124,77,255,0.08)',
+                            color: sets.length === 0 ? '#555' : '#ce93d8',
+                            fontWeight: 'bold', cursor: sets.length === 0 ? 'not-allowed' : 'pointer',
+                            fontSize: '12px',
+                        }}
+                    >
+                        📦 Export JSON
                     </button>
                     <button
                         onClick={handleDownloadSessionData}
@@ -134,23 +177,23 @@ const WorkoutSummary = ({ sets, bestReps, startTime, onClose, sessionTimeSeriesL
                             background: 'rgba(0,229,255,0.08)',
                             color: sessionTimeSeriesLog.length === 0 ? '#4a5b60' : '#80deea',
                             fontWeight: 'bold', cursor: sessionTimeSeriesLog.length === 0 ? 'not-allowed' : 'pointer',
-                            fontSize: '13px',
+                            fontSize: '12px',
                         }}
                     >
-                        Download Session Data (CSV)
-                    </button>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            flex: 1, minWidth: '90px', padding: '10px', borderRadius: '8px',
-                            border: 'none', background: '#333',
-                            color: '#fff', fontWeight: 'bold',
-                            cursor: 'pointer', fontSize: '13px',
-                        }}
-                    >
-                        Close
+                        📈 Biomechanics CSV
                     </button>
                 </div>
+                <button
+                    onClick={onClose}
+                    style={{
+                        width: '100%', padding: '10px', borderRadius: '8px',
+                        border: 'none', background: '#333',
+                        color: '#fff', fontWeight: 'bold',
+                        cursor: 'pointer', fontSize: '13px',
+                    }}
+                >
+                    Close
+                </button>
             </div>
         </div>
     );

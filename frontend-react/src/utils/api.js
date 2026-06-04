@@ -3,12 +3,6 @@ import config from '../config';
 const QUEUE_KEY = 'ai_trainer_pending_queue';
 let _backendAvailable = null;
 
-const withTimeout = (promise, ms) => {
-  const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), ms);
-  return Object.assign(promise, { abort: () => { clearTimeout(id); ctrl.abort(); } });
-};
-
 export const checkBackend = async () => {
   if (!config.backendUrl) { _backendAvailable = false; return false; }
   try {
@@ -70,7 +64,9 @@ export const saveSessionToBackend = async (sessionData) => {
       queue.push({ path: '/sessions', data: sessionData, timestamp: Date.now() });
       if (queue.length > 50) queue.splice(0, queue.length - 50);
       localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-    } catch {}
+    } catch {
+      /* localStorage unavailable — drop silently, app stays functional */
+    }
     return null;
   }
 };
@@ -93,7 +89,9 @@ export const flushQueue = async () => {
       }
     }
     localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
-  } catch {}
+  } catch {
+    /* queue flush failed — will retry on next call */
+  }
 };
 
 export const getSessions = async (params = {}) => {

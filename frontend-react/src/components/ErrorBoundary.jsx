@@ -32,7 +32,6 @@ export class AppErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     if (typeof console !== 'undefined') {
-      // eslint-disable-next-line no-console
       console.error('[AppErrorBoundary]', error, info);
     }
   }
@@ -70,7 +69,6 @@ export class PoseErrorBoundary extends React.Component {
 
   componentDidCatch(error) {
     if (typeof console !== 'undefined') {
-      // eslint-disable-next-line no-console
       console.error('[PoseErrorBoundary]', error);
     }
   }

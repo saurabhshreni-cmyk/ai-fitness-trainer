@@ -13,6 +13,8 @@ import usePoseDetection from "../hooks/usePoseDetection";
 import { EXERCISES } from "../utils/exercises";
 import { buildSessionRecord, saveSession } from "../utils/sessionStorage";
 import { saveSessionToBackend, checkBackend, isBackendAvailable } from "../utils/api";
+import { loadSettings } from "./Settings";
+import config from "../config";
 
 const GhostChart = lazy(() => import("../components/GhostChart"));
 const WorkoutSummary = lazy(() => import("../components/WorkoutSummary"));
@@ -86,9 +88,20 @@ export default function TrainerPage() {
   const lastRepTimeRef = useRef(null);
   const repTimestampsRef = useRef([]);
   const restTimerIdRef = useRef(null);
+  // Voice preference: Settings toggle (localStorage) overrides the build-time config default.
+  const voiceEnabledRef = useRef(loadSettings().voiceEnabled ?? config.enableVoice);
 
   useEffect(() => {
     checkBackend().then(ok => setBackendOnline(ok));
+    const syncVoice = () => {
+      voiceEnabledRef.current = loadSettings().voiceEnabled ?? config.enableVoice;
+    };
+    window.addEventListener("focus", syncVoice);
+    window.addEventListener("storage", syncVoice);
+    return () => {
+      window.removeEventListener("focus", syncVoice);
+      window.removeEventListener("storage", syncVoice);
+    };
   }, []);
 
   const {
@@ -126,6 +139,8 @@ export default function TrainerPage() {
   }, []);
 
   const speak = useCallback((text, force = false) => {
+    if (!voiceEnabledRef.current) return;
+    if (!speechRef.current || typeof SpeechSynthesisUtterance === "undefined") return;
     const now = Date.now();
     if (force || now - lastSpokenRef.current > SPEECH_GAP) {
       const utterance = new SpeechSynthesisUtterance(text);

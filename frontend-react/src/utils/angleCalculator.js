@@ -613,6 +613,13 @@ export const countRep = ({
       maybeCount();
     }
     if (smoothedAngle < thresholds.down_angle && repState.stage === "up") setStage("down");
+  } else if (cfg.mode === "hinge") {
+    // Deadlift: straight = up (>up_angle), bent forward = down (<down_angle)
+    if (smoothedAngle > thresholds.up_angle) setStage("up");
+    if (smoothedAngle < thresholds.down_angle && repState.stage === "up") {
+      setStage("down");
+      maybeCount();
+    }
   }
 
   if (!formFeedback) {

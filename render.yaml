@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-fitness-trainer-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FRONTEND_URL
+        value: PASTE_YOUR_VERCEL_URL_HERE
+      - key: DEBUG
+        value: false
+      - key: APP_VERSION
+        value: 1.0.0

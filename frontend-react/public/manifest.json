@@ -1,0 +1,17 @@
+{
+  "name": "AI Fitness Trainer",
+  "short_name": "FitTrainer",
+  "description": "Real-time AI-powered workout tracker with pose estimation",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#00ffc8",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}

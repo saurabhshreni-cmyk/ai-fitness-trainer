@@ -19,3 +19,6 @@ _bench_results.json
 
 venv/
 build/
+
+# Vercel
+.vercel/

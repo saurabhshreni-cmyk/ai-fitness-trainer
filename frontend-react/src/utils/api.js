@@ -49,19 +49,40 @@ export const fetchWithRetry = async (path, options = {}, retries = 3, timeoutMs 
   throw lastError;
 };
 
+/**
+ * Maps the localStorage session record (camelCase, client-side shape) to the
+ * backend's SessionCreateSchema (snake_case). Without this, the backend stored
+ * reps=0 / duration=0 because the field names never matched.
+ */
+export const toBackendPayload = (record) => ({
+  exercise: record.exercise,
+  sets: record.sets ?? (Array.isArray(record.setLog) ? record.setLog.length : 0),
+  reps: record.totalReps ?? 0,
+  duration_seconds: record.durationSeconds ?? 0,
+  avg_form_score: record.avgFormScore ?? 0,
+  best_form_score: record.avgFormScore ?? 0,
+  rep_log: [],
+  summary: {
+    clientId: record.id,
+    createdAt: record.createdAt,
+    setLog: record.setLog ?? [],
+  },
+});
+
 export const saveSessionToBackend = async (sessionData) => {
   if (!config.backendUrl) return null;
+  const payload = toBackendPayload(sessionData);
   try {
     const res = await fetchWithRetry('/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessionData),
+      body: JSON.stringify(payload),
     });
     return await res.json();
   } catch {
     try {
       const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-      queue.push({ path: '/sessions', data: sessionData, timestamp: Date.now() });
+      queue.push({ path: '/sessions', data: payload, timestamp: Date.now() });
       if (queue.length > 50) queue.splice(0, queue.length - 50);
       localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
     } catch {

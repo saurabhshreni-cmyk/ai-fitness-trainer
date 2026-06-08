@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ControlPanel = ({ isRunning, onToggle, onReset, onEndWorkout }) => (
+const ControlPanel = ({ isRunning, onToggle, onReset, onEndWorkout, onStop, cameraActive }) => (
     <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -37,8 +37,22 @@ const ControlPanel = ({ isRunning, onToggle, onReset, onEndWorkout }) => (
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}
         >
-            ⏹ END WORKOUT
+            ⏹ END WORKOUT (save &amp; review)
         </button>
+        {cameraActive && (
+            <button
+                onClick={onStop}
+                title="Save, then turn off the camera and end the session"
+                style={{
+                    width: '100%', padding: '11px', borderRadius: '8px',
+                    border: 'none', backgroundColor: '#b71c1c',
+                    color: 'white', fontWeight: 'bold', cursor: 'pointer',
+                    fontSize: '13px', letterSpacing: '0.4px',
+                }}
+            >
+                ⏻ STOP SESSION (turn off camera)
+            </button>
+        )}
     </div>
 );
 

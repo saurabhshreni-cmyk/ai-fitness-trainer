@@ -1,7 +1,8 @@
 import { EXERCISE_MAP } from "./exercises";
 
 const ANGLE_SPIKE_THRESHOLD = 60;
-const REP_COOLDOWN_MS = 800;
+const REP_COOLDOWN_MS = 800; // debounce: a rep can be counted at most once per this window (>= 500ms)
+const MIN_STAGE_FRAMES = 3; // consecutive frames required before a stage transition commits
 const SPAM_WINDOW_MS = 3000;
 const MAX_SPAM_TIMES = 5;
 const ANGLE_EMA_ALPHA = 0.3;
@@ -78,6 +79,30 @@ const isConcentricMotion = (mode, deltaAngle) => {
   if (!Number.isFinite(deltaAngle)) return false;
   if (mode === "curl") return deltaAngle < 0;
   return deltaAngle > 0;
+};
+
+/**
+ * Maps the current smoothed angle to the stage it implies for each mode.
+ * Returns null when the angle sits in the dead-zone between the two thresholds
+ * (hysteresis — prevents flicker around a single boundary).
+ */
+const STAGE_FOR_ANGLE = {
+  curl: (a, t) => (a > t.down_angle ? "down" : a < t.up_angle ? "up" : null),
+  press: (a, t) => (a < t.down_angle ? "down" : a > t.up_angle ? "up" : null),
+  raise: (a, t) => (a < t.down_angle ? "down" : a > t.up_angle ? "up" : null),
+  squat: (a, t) => (a > t.up_angle ? "up" : a < t.down_angle ? "down" : null),
+  hinge: (a, t) => (a > t.up_angle ? "up" : a < t.down_angle ? "down" : null),
+  pushup: (a, t) => (a > t.up_angle ? "up" : a < t.down_angle ? "down" : null),
+};
+
+/** The stage transition (from → to) that completes one rep, per mode. */
+const REP_TRANSITION = {
+  curl: { from: "down", to: "up" },
+  press: { from: "down", to: "up" },
+  raise: { from: "down", to: "up" },
+  squat: { from: "up", to: "down" },
+  hinge: { from: "up", to: "down" },
+  pushup: { from: "down", to: "up" },
 };
 
 const classifyPhase = (mode, previousStage, nextStage) => {
@@ -277,6 +302,8 @@ const appendTimeSeries = (repState, now) => {
 export const createInitialRepState = () => ({
   reps: 0,
   stage: null,
+  stageCandidate: null,
+  stageCandidateFrames: 0,
   prevAngle: null,
   smoothedAngle: null,
   smoothedSecondaryAngle: null,
@@ -376,6 +403,12 @@ export const countRep = ({
   let repCounted = false;
   let strictPenaltyAppliedThisFrame = false;
   let bilateralPenaltyAppliedThisFrame = false;
+
+  // Fallback: if MediaPipe handed us a NaN/Infinity angle (missing or garbage
+  // landmark), skip this frame entirely rather than corrupting the state machine.
+  if (!Number.isFinite(angle)) {
+    return { ...readSnapshot(repState), repCounted: false };
+  }
 
   updateBarPath(repState, now, movingJointPoint);
 
@@ -576,50 +609,43 @@ export const countRep = ({
     registerRep();
   };
 
-  if (exerciseKey === "pushups") {
-    if (Math.abs(shoulderY - wristY) < 0.05) {
-      formFeedback = formFeedback || "Get into pushup position";
-      warnings.push("position");
+  // Resolve which stage the current smoothed angle implies for this mode.
+  const resolveStage = STAGE_FOR_ANGLE[cfg.mode];
+  let candidateStage = resolveStage ? resolveStage(smoothedAngle, thresholds) : null;
+
+  // Pushups need the torso roughly horizontal (shoulder above wrist) before counting.
+  if (exerciseKey === "pushups" && Math.abs(shoulderY - wristY) < 0.05) {
+    formFeedback = formFeedback || "Get into pushup position";
+    warnings.push("position");
+    candidateStage = null;
+  }
+
+  if (candidateStage && candidateStage !== repState.stage) {
+    // Frame-hold: require MIN_STAGE_FRAMES consecutive frames in the new region
+    // before committing the transition — filters single-frame landmark noise.
+    if (repState.stageCandidate === candidateStage) {
+      repState.stageCandidateFrames += 1;
     } else {
-      if (smoothedAngle > thresholds.up_angle) setStage("up");
-      if (smoothedAngle < thresholds.down_angle && repState.stage === "up") setStage("down");
-      if (smoothedAngle > thresholds.up_angle && repState.stage === "down") {
-        maybeCount();
-        if (repCounted) setStage("up");
-      }
+      repState.stageCandidate = candidateStage;
+      repState.stageCandidateFrames = 1;
     }
-  } else if (cfg.mode === "squat") {
-    if (smoothedAngle > thresholds.up_angle) setStage("up");
-    if (smoothedAngle < thresholds.down_angle && repState.stage === "up") {
-      setStage("down");
-      maybeCount();
+
+    if (repState.stageCandidateFrames >= MIN_STAGE_FRAMES) {
+      const transition = REP_TRANSITION[cfg.mode];
+      const completesRep =
+        transition &&
+        repState.stage === transition.from &&
+        candidateStage === transition.to;
+      setStage(candidateStage);
+      if (completesRep) maybeCount();
+      repState.stageCandidate = null;
+      repState.stageCandidateFrames = 0;
     }
-  } else if (cfg.mode === "curl") {
-    if (smoothedAngle > thresholds.down_angle) setStage("down");
-    if (smoothedAngle < thresholds.up_angle && repState.stage === "down") {
-      setStage("up");
-      maybeCount();
-    }
-  } else if (cfg.mode === "press") {
-    if (smoothedAngle < thresholds.down_angle) setStage("down");
-    if (smoothedAngle > thresholds.up_angle && repState.stage === "down") {
-      setStage("up");
-      maybeCount();
-    }
-  } else if (cfg.mode === "raise") {
-    if (smoothedAngle < thresholds.down_angle) setStage("down");
-    if (smoothedAngle > thresholds.up_angle && repState.stage === "down") {
-      setStage("up");
-      maybeCount();
-    }
-    if (smoothedAngle < thresholds.down_angle && repState.stage === "up") setStage("down");
-  } else if (cfg.mode === "hinge") {
-    // Deadlift: straight = up (>up_angle), bent forward = down (<down_angle)
-    if (smoothedAngle > thresholds.up_angle) setStage("up");
-    if (smoothedAngle < thresholds.down_angle && repState.stage === "up") {
-      setStage("down");
-      maybeCount();
-    }
+  } else {
+    // Already in this stage, or in the dead-zone between thresholds: clear any
+    // partial candidate so noise can't accumulate across reps.
+    repState.stageCandidate = null;
+    repState.stageCandidateFrames = 0;
   }
 
   if (!formFeedback) {

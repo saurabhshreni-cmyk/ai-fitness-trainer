@@ -82,10 +82,18 @@ export default function usePoseDetection({
   countdownActive,
 }) {
   const [poseState, setPoseState] = useState(DISPLAY_DEFAULTS);
+  // Model lifecycle: "loading" (fetching WASM) → "ready" (first frame in) → "error".
+  const [modelStatus, setModelStatus] = useState("loading");
 
   const displayRef = useRef(DISPLAY_DEFAULTS);
   const repState = useRef(createInitialRepState());
   const currentStateRef = useRef(DISPLAY_DEFAULTS);
+
+  // Instances + flags for safe teardown (Stop Session).
+  const cameraRef = useRef(null);
+  const poseRef = useRef(null);
+  const stoppedRef = useRef(false);
+  const gotResultsRef = useRef(false);
 
   const exerciseRef = useRef(exercise);
   const isRunningRef = useRef(isRunning);
@@ -115,16 +123,50 @@ export default function usePoseDetection({
     };
   }, []);
 
+  /**
+   * Fully tears down the camera + MediaPipe pipeline. Safe to call repeatedly
+   * and even if things are already stopped (all teardown is guarded).
+   */
+  const stopDetection = useCallback(() => {
+    stoppedRef.current = true;
+    try {
+      cameraRef.current?.stop();
+    } catch {
+      /* camera already stopped */
+    }
+    try {
+      poseRef.current?.close();
+    } catch {
+      /* pose already closed */
+    }
+    cameraRef.current = null;
+    poseRef.current = null;
+  }, []);
+
   const onResults = useCallback(
     (results) => {
+      if (stoppedRef.current) return; // session stopped — ignore any in-flight frame
+
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+
+      const videoEl = webcamRef.current?.video;
+      // Keep the canvas drawing buffer matched to the live camera resolution so
+      // the skeleton overlay stays aligned and the feed isn't distorted.
+      if (videoEl && videoEl.videoWidth && canvas.width !== videoEl.videoWidth) {
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+      }
       const width = canvas.width;
       const height = canvas.height;
-      const videoEl = webcamRef.current?.video;
+
+      if (!gotResultsRef.current) {
+        gotResultsRef.current = true;
+        setModelStatus("ready");
+      }
 
       try {
         ctx.save();
@@ -318,6 +360,17 @@ export default function usePoseDetection({
     let camera = null;
     let cancelled = false;
 
+    // Fresh start: clear stop flags and surface the loading state.
+    stoppedRef.current = false;
+    gotResultsRef.current = false;
+    setModelStatus("loading");
+
+    // If no frame is processed within the window, treat the model as failed
+    // (CDN unreachable / WASM blocked) so the UI can show a clear message.
+    const loadTimer = setTimeout(() => {
+      if (!cancelled && !gotResultsRef.current) setModelStatus("error");
+    }, 15000);
+
     const tryLoadPose = async () => {
       let workingCdn = null;
 
@@ -343,6 +396,7 @@ export default function usePoseDetection({
       pose = new Pose({
         locateFile: (file) => `${locateCdn}/${file}`,
       });
+      poseRef.current = pose;
 
       pose.setOptions({
         modelComplexity: MODEL_COMPLEXITY,
@@ -352,24 +406,35 @@ export default function usePoseDetection({
       });
       pose.onResults(onResults);
 
-      if (cancelled) { pose.close(); return; }
+      if (cancelled) { pose.close(); poseRef.current = null; return; }
 
       camera = new Camera(video, {
         onFrame: async () => {
-          if (pose) await pose.send({ image: video });
+          if (cancelled || stoppedRef.current || !poseRef.current) return;
+          try {
+            await pose.send({ image: video });
+          } catch {
+            /* transient send failure — next frame retries */
+          }
         },
         width: 640,
         height: 480,
       });
+      cameraRef.current = camera;
       camera.start();
     };
 
-    tryLoadPose().catch(() => {});
+    tryLoadPose().catch(() => {
+      if (!cancelled) setModelStatus("error");
+    });
 
     return () => {
       cancelled = true;
-      camera?.stop();
-      pose?.close();
+      clearTimeout(loadTimer);
+      try { camera?.stop(); } catch { /* already stopped */ }
+      try { pose?.close(); } catch { /* already closed */ }
+      cameraRef.current = null;
+      poseRef.current = null;
     };
   }, [cameraReady, onResults, webcamRef]);
 
@@ -408,8 +473,10 @@ export default function usePoseDetection({
 
   return {
     ...poseState,
+    modelStatus,
     repState,
     resetPoseState,
+    stopDetection,
     readSnapshot,
   };
 }

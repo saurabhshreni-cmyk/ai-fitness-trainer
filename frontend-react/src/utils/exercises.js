@@ -1,8 +1,8 @@
 export const EXERCISE_MAP = {
   bicep_curl: {
     down_angle: 160,
-    up_angle: 35,
-    ideal_rom: 125,
+    up_angle: 50,
+    ideal_rom: 110,
     rom_tolerance: 18,
     ideal_tempo: 1.2,
     strict_form_max_deviation: 15,
@@ -22,8 +22,8 @@ export const EXERCISE_MAP = {
     mode: "pushup",
   },
   squats: {
-    up_angle: 165,
-    down_angle: 95,
+    up_angle: 160,
+    down_angle: 90,
     ideal_rom: 70,
     rom_tolerance: 16,
     ideal_tempo: 1.3,
@@ -34,8 +34,8 @@ export const EXERCISE_MAP = {
   },
   shoulder_press: {
     down_angle: 80,
-    up_angle: 165,
-    ideal_rom: 85,
+    up_angle: 160,
+    ideal_rom: 80,
     rom_tolerance: 18,
     ideal_tempo: 1.1,
     strict_form_max_deviation: 12,
@@ -44,9 +44,9 @@ export const EXERCISE_MAP = {
     mode: "press",
   },
   lateral_raise: {
-    down_angle: 20,
-    up_angle: 75,
-    ideal_rom: 55,
+    down_angle: 30,
+    up_angle: 80,
+    ideal_rom: 50,
     rom_tolerance: 14,
     ideal_tempo: 1.1,
     strict_form_max_deviation: 12,

@@ -141,7 +141,7 @@ export default function HistoryPage() {
         ) : (
           <>
             {/* Charts row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '20px' }}>
               {/* Reps over time */}
               <div style={CARD_STYLE}>
                 <h3 style={{ margin: '0 0 16px', fontSize: '14px', color: '#7fffd4', textTransform: 'uppercase', letterSpacing: '0.7px' }}>

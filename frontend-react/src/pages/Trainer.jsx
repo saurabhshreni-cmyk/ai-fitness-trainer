@@ -12,7 +12,7 @@ import { PoseErrorBoundary, ChartErrorBoundary } from "../components/ErrorBounda
 import usePoseDetection from "../hooks/usePoseDetection";
 import { EXERCISES } from "../utils/exercises";
 import { buildSessionRecord, saveSession } from "../utils/sessionStorage";
-import { saveSessionToBackend, checkBackend, isBackendAvailable } from "../utils/api";
+import { saveSessionToBackend, checkBackend, isBackendAvailable, flushQueue } from "../utils/api";
 import { loadSettings } from "./Settings";
 import config from "../config";
 
@@ -67,6 +67,7 @@ export default function TrainerPage() {
   const [camAttempt, setCamAttempt] = useState(0);
   const [camError, setCamError] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
+  const [sessionStopped, setSessionStopped] = useState(false);
   const [backendOnline, setBackendOnline] = useState(null);
 
   const [exercise, setExercise] = useState("bicep_curl");
@@ -92,7 +93,11 @@ export default function TrainerPage() {
   const voiceEnabledRef = useRef(loadSettings().voiceEnabled ?? config.enableVoice);
 
   useEffect(() => {
-    checkBackend().then(ok => setBackendOnline(ok));
+    checkBackend().then(ok => {
+      setBackendOnline(ok);
+      // Backend reachable again — drain any sessions queued while offline.
+      if (ok) flushQueue().catch(() => {});
+    });
     const syncVoice = () => {
       voiceEnabledRef.current = loadSettings().voiceEnabled ?? config.enableVoice;
     };
@@ -106,7 +111,7 @@ export default function TrainerPage() {
 
   const {
     angle, reps, stage, formScore, formFeedback,
-    poseConf, resetPoseState, readSnapshot,
+    poseConf, modelStatus, resetPoseState, stopDetection, readSnapshot,
   } = usePoseDetection({
     webcamRef, canvasRef, cameraReady, exercise, isRunning,
     countdownActive: countdown !== null,
@@ -250,7 +255,10 @@ export default function TrainerPage() {
     lastRepTimeRef.current = null;
   }, []);
 
-  const handleEndWorkout = useCallback(() => {
+  // Single source of truth for persisting a session: localStorage first (always
+  // succeeds, acts as the backup), then a best-effort backend sync that itself
+  // falls back to an offline queue if the network fails.
+  const persistSession = useCallback(() => {
     const snapshot = readSnapshot();
     const finalSets = reps > 0
       ? [...sets, { exercise, reps, timestamp: Date.now() }]
@@ -265,17 +273,43 @@ export default function TrainerPage() {
         startTime: workoutStartRef.current,
         avgFormScore: formScore,
       });
-      saveSession(record);
-      const available = isBackendAvailable();
-      if (available !== false) {
+      saveSession(record); // localStorage backup — never throws fatally
+      if (isBackendAvailable() !== false) {
         saveSessionToBackend(record).catch(() => {});
       }
     }
+  }, [readSnapshot, reps, sets, exercise, formScore]);
 
+  const handleEndWorkout = useCallback(() => {
+    persistSession();
     resetCounter(true);
     setIsRunning(false);
     setShowSummary(true);
-  }, [readSnapshot, reps, sets, exercise, formScore, resetCounter]);
+  }, [persistSession, resetCounter]);
+
+  // Stop Session: save, then fully release the camera + MediaPipe pipeline.
+  const handleStopSession = useCallback(() => {
+    persistSession();
+    resetCounter(true);
+    setIsRunning(false);
+    stopDetection();          // stop MediaPipe processing (guarded, cancels next frame)
+    setCameraReady(false);    // triggers hook cleanup
+    setSessionStopped(true);  // unmounts <Webcam> → releases all camera tracks
+    setShowSummary(true);
+  }, [persistSession, resetCounter, stopDetection]);
+
+  const handleStartNewSession = useCallback(() => {
+    setShowSummary(false);
+    setSets([]);
+    setSessionTimeSeriesLog([]);
+    workoutStartRef.current = null;
+    prevRepsRef.current = 0;
+    repTimestampsRef.current = [];
+    lastRepTimeRef.current = null;
+    setCamAttempt(0);
+    setCameraReady(false);
+    setSessionStopped(false); // remounts <Webcam> → re-requests the camera
+  }, []);
 
   const handleCloseSummary = useCallback(() => {
     setShowSummary(false);
@@ -355,7 +389,7 @@ export default function TrainerPage() {
           borderRadius: "20px", padding: "4px 12px",
           fontSize: "11px", color: "#ff9800", fontWeight: "bold",
         }}>
-          ⚡ Offline Mode
+          ⚡ Backend offline — history unavailable
         </div>
       )}
 
@@ -414,7 +448,7 @@ export default function TrainerPage() {
         </div>
       )}
 
-      {!camError && !demoMode && (
+      {!camError && !demoMode && !sessionStopped && (
         <Webcam
           ref={webcamRef}
           style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
@@ -444,8 +478,30 @@ export default function TrainerPage() {
           <canvas ref={canvasRef} width={640} height={480} />
 
           {warmingUp && <div className="overlay-center warm-overlay">📷 Camera warming up…</div>}
+          {!warmingUp && cameraReady && !sessionStopped && modelStatus === "loading" && (
+            <div className="overlay-center warm-overlay">🧠 Loading AI model…</div>
+          )}
+          {!sessionStopped && modelStatus === "error" && (
+            <div className="overlay-center warm-overlay" style={{ flexDirection: "column", gap: "12px", color: "#ff6b6b", borderColor: "rgba(255,107,107,0.4)", pointerEvents: "auto" }}>
+              <div>⚠️ Couldn’t load the AI pose model</div>
+              <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 400 }}>Check your connection, then reload.</div>
+              <button onClick={() => window.location.reload()}
+                style={{ padding: "8px 20px", borderRadius: "8px", border: "none", background: "#ff6b6b", color: "#fff", fontWeight: "bold", cursor: "pointer" }}>
+                Reload
+              </button>
+            </div>
+          )}
           {countdown !== null && <div className="overlay-center countdown-overlay">{countdown}</div>}
           {restSecs !== null && <div className="overlay-center rest-overlay">{formatRest(restSecs)}</div>}
+          {sessionStopped && (
+            <div className="overlay-center warm-overlay" style={{ flexDirection: "column", gap: "12px", pointerEvents: "auto" }}>
+              <div>⏹ Session stopped — camera off</div>
+              <button onClick={handleStartNewSession}
+                style={{ padding: "10px 24px", borderRadius: "8px", border: "none", background: "#43a047", color: "#fff", fontWeight: "bold", cursor: "pointer" }}>
+                ▶ Start New Session
+              </button>
+            </div>
+          )}
         </PoseErrorBoundary>
 
         <div className="hud">
@@ -473,7 +529,8 @@ export default function TrainerPage() {
           </ChartErrorBoundary>
 
           <ControlPanel isRunning={isRunning} onToggle={handleToggle}
-            onReset={() => resetCounter(true)} onEndWorkout={handleEndWorkout} />
+            onReset={() => resetCounter(true)} onEndWorkout={handleEndWorkout}
+            onStop={handleStopSession} cameraActive={cameraReady && !sessionStopped} />
 
           <div className="kb-hints">
             <span>Space: Start/Pause</span>

@@ -10,9 +10,10 @@ import StatsDisplay from "../components/StatsDisplay";
 import ScoreBoard from "../components/ScoreBoard";
 import { PoseErrorBoundary, ChartErrorBoundary } from "../components/ErrorBoundary";
 import usePoseDetection from "../hooks/usePoseDetection";
+import useBackendStatus from "../hooks/useBackendStatus";
 import { EXERCISES } from "../utils/exercises";
 import { buildSessionRecord, saveSession } from "../utils/sessionStorage";
-import { saveSessionToBackend, checkBackend, isBackendAvailable, flushQueue } from "../utils/api";
+import { saveSessionToBackend, isBackendAvailable } from "../utils/api";
 import { loadSettings } from "./Settings";
 import config from "../config";
 
@@ -68,7 +69,8 @@ export default function TrainerPage() {
   const [camError, setCamError] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
   const [sessionStopped, setSessionStopped] = useState(false);
-  const [backendOnline, setBackendOnline] = useState(null);
+  // "checking" | "online" | "waking" | "offline" — keeps the Render dyno warm.
+  const backendStatus = useBackendStatus();
 
   const [exercise, setExercise] = useState("bicep_curl");
   const [isRunning, setIsRunning] = useState(false);
@@ -93,11 +95,6 @@ export default function TrainerPage() {
   const voiceEnabledRef = useRef(loadSettings().voiceEnabled ?? config.enableVoice);
 
   useEffect(() => {
-    checkBackend().then(ok => {
-      setBackendOnline(ok);
-      // Backend reachable again — drain any sessions queued while offline.
-      if (ok) flushQueue().catch(() => {});
-    });
     const syncVoice = () => {
       voiceEnabledRef.current = loadSettings().voiceEnabled ?? config.enableVoice;
     };
@@ -381,15 +378,25 @@ export default function TrainerPage() {
 
   return (
     <div className="app-container">
-      {/* Offline badge */}
-      {backendOnline === false && (
+      {/* Backend status badge */}
+      {backendStatus === "waking" && (
+        <div style={{
+          position: "fixed", top: "8px", right: "8px", zIndex: 999,
+          background: "rgba(0,229,255,0.12)", border: "1px solid rgba(0,229,255,0.4)",
+          borderRadius: "20px", padding: "4px 12px",
+          fontSize: "11px", color: "#00e5ff", fontWeight: "bold",
+        }}>
+          🔄 Waking up backend…
+        </div>
+      )}
+      {backendStatus === "offline" && (
         <div style={{
           position: "fixed", top: "8px", right: "8px", zIndex: 999,
           background: "rgba(255,152,0,0.15)", border: "1px solid rgba(255,152,0,0.4)",
           borderRadius: "20px", padding: "4px 12px",
           fontSize: "11px", color: "#ff9800", fontWeight: "bold",
         }}>
-          ⚡ Backend offline — history unavailable
+          ⚡ Backend offline — retrying… (history saved locally)
         </div>
       )}
 

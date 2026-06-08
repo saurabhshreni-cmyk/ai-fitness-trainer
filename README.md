@@ -6,6 +6,7 @@
 
 Webcam → 33-point pose skeleton → biomechanics engine → live rep counting, form scoring & voice coaching. No installs, no uploads, no GPU required.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-00ffc8?style=flat-square&logo=vercel)](https://ai-fitness-trainer-gules.vercel.app)
 [![CI](https://github.com/saurabhshreni-cmyk/ai-fitness-trainer/actions/workflows/ci.yml/badge.svg)](https://github.com/saurabhshreni-cmyk/ai-fitness-trainer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
@@ -21,7 +22,7 @@ Webcam → 33-point pose skeleton → biomechanics engine → live rep counting,
 
 ## 🎬 Live Demo
 
-> **Frontend (Vercel):** `https://ai-fitness-trainer.vercel.app` — _replace with your URL after the one-click connect below_
+> **Frontend (Vercel):** https://ai-fitness-trainer-gules.vercel.app
 >
 > **Backend (Render):** optional — the app is fully functional offline (localStorage-first). The backend only adds cross-device sync, analytics, and exports.
 

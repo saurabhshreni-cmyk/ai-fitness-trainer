@@ -39,8 +39,14 @@ const normalizeCurves = (baselineGhostCurve, timeSeriesLog) => {
 };
 
 const GhostChart = ({ baselineGhostCurve = [], timeSeriesLog = [] }) => {
-  const safeBaseline = Array.isArray(baselineGhostCurve) ? baselineGhostCurve : [];
-  const safeTimeSeries = Array.isArray(timeSeriesLog) ? timeSeriesLog : [];
+  const safeBaseline = useMemo(
+    () => (Array.isArray(baselineGhostCurve) ? baselineGhostCurve : []),
+    [baselineGhostCurve]
+  );
+  const safeTimeSeries = useMemo(
+    () => (Array.isArray(timeSeriesLog) ? timeSeriesLog : []),
+    [timeSeriesLog]
+  );
   const hasAnyData = safeBaseline.length > 0 || safeTimeSeries.length > 0;
 
   const chartData = useMemo(

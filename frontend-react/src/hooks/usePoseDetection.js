@@ -309,29 +309,67 @@ export default function usePoseDetection({
     const video = webcamRef.current?.video;
     if (!video) return undefined;
 
-    const pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-    });
-    pose.setOptions({
-      modelComplexity: MODEL_COMPLEXITY,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
-    pose.onResults(onResults);
+    const CDN_SOURCES = [
+      'https://cdn.jsdelivr.net/npm/@mediapipe/pose',
+      'https://unpkg.com/@mediapipe/pose',
+    ];
 
-    const camera = new Camera(video, {
-      onFrame: async () => {
-        await pose.send({ image: video });
-      },
-      width: 640,
-      height: 480,
-    });
-    camera.start();
+    let pose = null;
+    let camera = null;
+    let cancelled = false;
+
+    const tryLoadPose = async () => {
+      let workingCdn = null;
+
+      for (let i = 0; i < CDN_SOURCES.length; i++) {
+        if (cancelled) return;
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 6000);
+          const res = await fetch(
+            `${CDN_SOURCES[i]}/pose_solution_packed_assets_loader.js`,
+            { method: 'HEAD', signal: ctrl.signal }
+          );
+          clearTimeout(timer);
+          if (res.ok) { workingCdn = CDN_SOURCES[i]; break; }
+        } catch {
+          // try next CDN
+        }
+      }
+
+      if (cancelled) return;
+
+      const locateCdn = workingCdn || CDN_SOURCES[0];
+      pose = new Pose({
+        locateFile: (file) => `${locateCdn}/${file}`,
+      });
+
+      pose.setOptions({
+        modelComplexity: MODEL_COMPLEXITY,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+      pose.onResults(onResults);
+
+      if (cancelled) { pose.close(); return; }
+
+      camera = new Camera(video, {
+        onFrame: async () => {
+          if (pose) await pose.send({ image: video });
+        },
+        width: 640,
+        height: 480,
+      });
+      camera.start();
+    };
+
+    tryLoadPose().catch(() => {});
 
     return () => {
-      camera.stop();
-      pose.close();
+      cancelled = true;
+      camera?.stop();
+      pose?.close();
     };
   }, [cameraReady, onResults, webcamRef]);
 

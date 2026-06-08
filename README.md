@@ -10,9 +10,10 @@ Webcam → 33-point pose skeleton → biomechanics engine → live rep counting,
 [![CI](https://github.com/saurabhshreni-cmyk/ai-fitness-trainer/actions/workflows/ci.yml/badge.svg)](https://github.com/saurabhshreni-cmyk/ai-fitness-trainer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-Pose-0F9D58?logo=google&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 
 [**Live Demo**](#-live-demo) · [**Features**](#-features) · [**Architecture**](#-architecture) · [**Quick Start**](#-quick-start) · [**API**](#-api-reference)
 
@@ -22,13 +23,21 @@ Webcam → 33-point pose skeleton → biomechanics engine → live rep counting,
 
 ## 🎬 Live Demo
 
-> **Frontend (Vercel):** https://ai-fitness-trainer-gules.vercel.app
+> ✅ **Live & deployed** — open it, allow camera access, and start repping.
 >
-> **Backend (Render):** optional — the app is fully functional offline (localStorage-first). The backend only adds cross-device sync, analytics, and exports.
+> **Frontend (Vercel):** **https://ai-fitness-trainer-gules.vercel.app**
+>
+> **Backend (Render):** **https://ai-fitness-trainer-le0h.onrender.com** — optional. The app is fully functional offline (localStorage-first); the backend adds cross-device sync, analytics, and exports.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/saurabhshreni-cmyk/ai-fitness-trainer&root-directory=frontend-react)
 
 > ⚠️ Webcam access requires HTTPS — works on Vercel out of the box, and on `localhost` for development.
+>
+> 💤 The backend runs on Render's free tier and sleeps after ~15 min idle. The app pings it to keep it warm during a session and shows a **"Waking up backend…"** banner on a cold start (first request can take ~30–60s). Workouts always save locally regardless.
+
+### 🧰 Stack
+
+**React** · **Vite** · **MediaPipe** Pose · **FastAPI** · **SQLite** · **Vercel** (frontend) · **Render** (backend)
 
 ---
 
@@ -155,14 +164,14 @@ Interactive OpenAPI docs are served at `/docs`.
 
 ### Frontend → Vercel (one-time, ~2 clicks)
 1. Click **Deploy with Vercel** above (or import the repo at [vercel.com/new](https://vercel.com/new)).
-2. Set **Root Directory** to `frontend-react`. The included `vercel.json` handles SPA rewrites and the `COOP`/`COEP` headers MediaPipe WASM requires.
+2. Set **Root Directory** to `frontend-react`. The included `vercel.json` handles SPA rewrites and the `COOP` + `COEP: credentialless` headers MediaPipe WASM requires (`credentialless` lets the cross-origin CDN WASM load while still enabling `SharedArrayBuffer`).
 3. Every push to your branch now auto-deploys.
 
 ### Backend → Render (optional)
-1. [render.com](https://render.com) → **New Web Service** → connect this repo.
+1. [render.com](https://render.com) → **New Web Service** → connect this repo (the included `render.yaml` pre-fills everything).
 2. Build: `pip install -r requirements.txt` · Start: `uvicorn backend:app --host 0.0.0.0 --port $PORT`
 3. Env: `FRONTEND_URL=<your Vercel URL>`, `DEBUG=false`.
-4. Add `VITE_BACKEND_URL=<your Render URL>` in Vercel and redeploy.
+4. Add `VITE_API_URL=<your Render URL>` in Vercel and redeploy.
 
 ```bash
 # Sanity-check a deployment end to end (no third-party deps):
@@ -185,7 +194,7 @@ ai-fitness-trainer/
     ├── src/
     │   ├── pages/           # Trainer · History · Settings
     │   ├── components/      # HUD, charts, error boundaries
-    │   ├── hooks/           # usePoseDetection (CDN failover)
+    │   ├── hooks/           # usePoseDetection (CDN failover) · useBackendStatus (keep-alive)
     │   └── utils/           # kinematics, rep counting, storage, API retry
     ├── public/              # PWA manifest + service worker
     └── vercel.json          # SPA rewrites + MediaPipe security headers

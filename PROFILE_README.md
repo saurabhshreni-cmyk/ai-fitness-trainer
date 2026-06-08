@@ -39,8 +39,14 @@ I build AI-driven tools that turn computer vision and biomechanics into practica
   <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=saurabhshreni-cmyk&layout=compact&theme=tokyonight&hide_border=true&bg_color=00000000" alt="Top languages" height="165" />
 </p>
 
+## 🚀 Featured Project — [AI Fitness Trainer](https://github.com/saurabhshreni-cmyk/ai-fitness-trainer)
+
+A real-time, browser-based AI workout coach. Tracks a 33-point body skeleton via webcam (MediaPipe), runs a full biomechanics engine on-device (joint angles, velocity, range-of-motion, fatigue, symmetry), counts reps with a debounced state machine, scores form live, and coaches with voice — across **9 exercises**. React 18 + Vite frontend, FastAPI + SQLAlchemy backend, GitHub Actions CI, PWA, and triple-redundant data persistence.
+
+`React` · `MediaPipe` · `FastAPI` · `SQLAlchemy` · `Recharts` · `Vite` · `PWA`
+
 ## ⚡ Recent Achievement
-Built a real-time 3D Biomechanics Tracker with kinematics features, including local joint-angle analysis, smoothing, velocity-aware feedback, and live form coaching.
+Built a real-time 3D Biomechanics Tracker with kinematics features, including local joint-angle analysis, smoothing, velocity-aware feedback, and live form coaching — shipped with an automated test suite and CI pipeline.
 
 ## 📫 How to Reach Me
 - Email: [saurabhshreni@gmail.com](mailto:saurabhshreni@gmail.com)

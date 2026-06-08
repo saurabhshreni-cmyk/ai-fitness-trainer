@@ -156,6 +156,44 @@ export const EXERCISE_LANDMARKS = {
       right: "right_elbow",
     },
   },
+  deadlift: {
+    primary: ["left_shoulder", "left_hip", "left_knee"],
+    secondary: ["left_hip", "left_knee", "left_ankle"],
+    bilateral: {
+      left_leg: ["left_shoulder", "left_hip", "left_knee"],
+      right_leg: ["right_shoulder", "right_hip", "right_knee"],
+      imbalance_threshold_pct: 12,
+    },
+    spine: {
+      shoulders: ["left_shoulder", "right_shoulder"],
+      hips: ["left_hip", "right_hip"],
+      lean_limit: 55,
+    },
+    movingJoint: {
+      type: "midpoint",
+      left: "left_shoulder",
+      right: "right_shoulder",
+    },
+  },
+  tricep_extension: {
+    primary: ["left_shoulder", "left_elbow", "left_wrist"],
+    secondary: ["left_hip", "left_shoulder", "left_elbow"],
+    bilateral: {
+      left_arm: ["left_shoulder", "left_elbow", "left_wrist"],
+      right_arm: ["right_shoulder", "right_elbow", "right_wrist"],
+      imbalance_threshold_pct: 10,
+    },
+    spine: {
+      shoulders: ["left_shoulder", "right_shoulder"],
+      hips: ["left_hip", "right_hip"],
+      lean_limit: 35,
+    },
+    movingJoint: {
+      type: "single",
+      left: "left_wrist",
+      right: "right_wrist",
+    },
+  },
 };
 
 export const LANDMARK_INDEX = {

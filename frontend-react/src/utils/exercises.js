@@ -76,6 +76,28 @@ export const EXERCISE_MAP = {
     calibration_margin: 4,
     mode: "raise",
   },
+  deadlift: {
+    down_angle: 60,
+    up_angle: 165,
+    ideal_rom: 105,
+    rom_tolerance: 18,
+    ideal_tempo: 1.5,
+    strict_form_max_deviation: 20,
+    strict_form_penalty: 12,
+    calibration_margin: 5,
+    mode: "hinge",
+  },
+  tricep_extension: {
+    down_angle: 60,
+    up_angle: 155,
+    ideal_rom: 95,
+    rom_tolerance: 16,
+    ideal_tempo: 1.1,
+    strict_form_max_deviation: 12,
+    strict_form_penalty: 10,
+    calibration_margin: 4,
+    mode: "press",
+  },
 };
 
 export const EXERCISE_LABELS = {
@@ -86,6 +108,8 @@ export const EXERCISE_LABELS = {
   lateral_raise: "Lateral Raise",
   lunges: "Lunges",
   front_raise: "Front Raise",
+  deadlift: "Deadlift",
+  tricep_extension: "Tricep Extension",
 };
 
 export const EXERCISES = Object.keys(EXERCISE_LABELS);

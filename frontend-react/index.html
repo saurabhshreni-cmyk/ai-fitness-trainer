@@ -12,6 +12,19 @@
 </head>
 <body>
   <div id="root"></div>
+  <!--
+    MediaPipe is loaded from CDN as classic (non-module) scripts, NOT bundled by
+    Vite. This is deliberate and load-bearing: when @mediapipe/pose is bundled,
+    it loses the ability to locate its own WASM/model assets (the loader resolves
+    them relative to its own script URL via document.currentScript, which a bundle
+    breaks) — that's what caused "Couldn't load the AI pose model". Loading from
+    the CDN preserves correct asset resolution and is compatible with
+    COEP: credentialless (no CORP headers needed for these no-credentials loads).
+    Versions are pinned to match what the app was developed against.
+  -->
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js"></script>
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js"></script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

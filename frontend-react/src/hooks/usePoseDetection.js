@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
-import { Camera } from "@mediapipe/camera_utils";
-import { drawConnectors, drawLandmarks } from "@mediapipe/drawing_utils";
+// MediaPipe (Pose, Camera, drawing utils, POSE_CONNECTIONS) is loaded from CDN
+// via classic <script> tags in index.html and exposed on `window` — NOT bundled,
+// because bundling breaks MediaPipe's internal WASM/model asset resolution.
 import {
   calculateAngle,
   countRep,
@@ -190,11 +190,11 @@ export default function usePoseDetection({
 
         drawTrajectoryPath(ctx, liveSnapshot?.barPath || [], width, height, warningActive);
 
-        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+        window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, {
           color: connectorColor,
           lineWidth: 4,
         });
-        drawLandmarks(ctx, results.poseLandmarks, {
+        window.drawLandmarks(ctx, results.poseLandmarks, {
           color: landmarkColor,
           lineWidth: 2,
         });
@@ -351,10 +351,11 @@ export default function usePoseDetection({
     const video = webcamRef.current?.video;
     if (!video) return undefined;
 
-    const CDN_SOURCES = [
-      'https://cdn.jsdelivr.net/npm/@mediapipe/pose',
-      'https://unpkg.com/@mediapipe/pose',
-    ];
+    // MediaPipe ships its WASM/model assets next to pose.js on the CDN. Pinning
+    // locateFile to the same versioned CDN dir as the <script> in index.html
+    // guarantees the binaries match the loaded JS.
+    const POSE_VERSION = "0.5.1675469404";
+    const LOCATE_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/pose@${POSE_VERSION}`;
 
     let pose = null;
     let camera = null;
@@ -366,35 +367,42 @@ export default function usePoseDetection({
     setModelStatus("loading");
 
     // If no frame is processed within the window, treat the model as failed
-    // (CDN unreachable / WASM blocked) so the UI can show a clear message.
+    // (CDN unreachable / WASM blocked). 30s — mobile devices need longer to
+    // download the ~6 MB of WASM + model data over slower connections.
     const loadTimer = setTimeout(() => {
       if (!cancelled && !gotResultsRef.current) setModelStatus("error");
-    }, 15000);
+    }, 30000);
+
+    // The MediaPipe globals come from CDN <script> tags that may still be
+    // downloading when this effect runs. Poll until they're available.
+    const waitForGlobals = (timeoutMs) =>
+      new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = () => {
+          if (cancelled) { resolve(false); return; }
+          if (
+            window.Pose &&
+            window.Camera &&
+            window.drawConnectors &&
+            window.drawLandmarks &&
+            window.POSE_CONNECTIONS
+          ) {
+            resolve(true);
+          } else if (Date.now() - start > timeoutMs) {
+            reject(new Error("MediaPipe CDN scripts did not load"));
+          } else {
+            setTimeout(check, 150);
+          }
+        };
+        check();
+      });
 
     const tryLoadPose = async () => {
-      let workingCdn = null;
+      const ready = await waitForGlobals(25000);
+      if (cancelled || !ready) return;
 
-      for (let i = 0; i < CDN_SOURCES.length; i++) {
-        if (cancelled) return;
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 6000);
-          const res = await fetch(
-            `${CDN_SOURCES[i]}/pose_solution_packed_assets_loader.js`,
-            { method: 'HEAD', signal: ctrl.signal }
-          );
-          clearTimeout(timer);
-          if (res.ok) { workingCdn = CDN_SOURCES[i]; break; }
-        } catch {
-          // try next CDN
-        }
-      }
-
-      if (cancelled) return;
-
-      const locateCdn = workingCdn || CDN_SOURCES[0];
-      pose = new Pose({
-        locateFile: (file) => `${locateCdn}/${file}`,
+      pose = new window.Pose({
+        locateFile: (file) => `${LOCATE_CDN}/${file}`,
       });
       poseRef.current = pose;
 
@@ -408,7 +416,7 @@ export default function usePoseDetection({
 
       if (cancelled) { pose.close(); poseRef.current = null; return; }
 
-      camera = new Camera(video, {
+      camera = new window.Camera(video, {
         onFrame: async () => {
           if (cancelled || stoppedRef.current || !poseRef.current) return;
           try {
